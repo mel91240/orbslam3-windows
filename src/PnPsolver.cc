@@ -55,6 +55,9 @@
 #include "Thirdparty/DBoW2/DUtils/Random.h"
 #include <algorithm>
 
+#include <opencv2/core/types_c.h>
+#include <opencv2/core/core_c.h>
+
 using namespace std;
 
 namespace ORB_SLAM3

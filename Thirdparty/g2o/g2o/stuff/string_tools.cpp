@@ -37,6 +37,37 @@
 #include <iostream>
 #include <iterator>
 
+#ifdef _MSC_VER
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
+
+int vasprintf(char** sptr, const char* fmt, va_list ap)
+{
+    if (!sptr) return -1;
+    *sptr = nullptr;
+
+    va_list ap_copy;
+    va_copy(ap_copy, ap);
+    int count = vsnprintf(nullptr, 0, fmt, ap_copy);
+    va_end(ap_copy);
+
+    if (count < 0) return -1;
+
+    char* buf = (char*)malloc(count + 1);
+    if (!buf) return -1;
+
+    int written = vsnprintf(buf, count + 1, fmt, ap);
+    if (written < 0) {
+        free(buf);
+        return -1;
+    }
+
+    *sptr = buf;
+    return written;
+}
+#endif
+
 #if (defined (UNIX) || defined(CYGWIN)) && !defined(ANDROID)
 #include <wordexp.h>
 #endif
