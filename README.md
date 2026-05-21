@@ -1,94 +1,102 @@
-ORB_SLAM3 IN WINDOWS 10, VISUAL STUDIO 2019 
+# ORB-SLAM3 Windows build notes
 
-# 1. References
-- ORB-SLAM3 original project: https://github.com/UZ-SLAMLab/ORB_SLAM3
-- ORB-SLAM3 for Windows: https://github.com/chanho-code/ORB-SLAM3forWindows
-- ORB-SLAM2 for Windows: https://github.com/Phylliida/orbslam-windows
+This repository contains a Windows-oriented ORB-SLAM3 setup that was successfully built with Visual Studio 2022 on one machine, but runtime execution has not been fully validated yet. The current state is **build confirmed, runtime not fully tested**.[web:2206]
 
-# 2. Prerequisites
-- Visual Studio: tested with Visual Studio 2019
-- CMake GUI: tested with 3.18.2
-- boost: tested with 1.67.0 https://www.boost.org/users/history/version_1_67_0.html
-- OpenCV: required at leat 3.0, tested with 3.4.13 https://opencv.org/releases/
+## Current status
 
-# 3. Build thirdparty libraries
+The following artifacts were built successfully on Windows:
+- `Thirdparty/Pangolin/lib/Release/pangolin.lib`
+- `build_orbslam/Release/ORB_SLAM3.lib`
+- `build_orbslam/Release/ORB_SLAM3.dll` [web:2206]
 
-## DBoW2
-- Included in Thirdparty
-- Create a 'build' directory in Thirdparty/DBoW2  
-- Open CMake GUI, click Configure and select Visual Studio 16 2019 
-- Enter value OpenCV_DIR: path to OpenCV build
-- Click Configure until no variables are considered new, Generate, open project in Visual Studio
-- Change build type to Release 
-- Open project properties 
-	-> General tab -> Configure Type: Static Library (.lib)
-	-> Advanced tab -> Target File Extension: .lib
-	-> C/C++ Tab -> Code Generation -> Runtime Library: Multi-threaded(/MT)
-- Build ALL_BUILD. There are some warnings but no errors.
-- Build succeeded Thirdparty/DBoW2/lib/Release/DBoW2.lib
+This repository includes local fixes applied to make the Windows build succeed, especially around Pangolin, Boost, and MSVC/CMake compatibility.[web:2209][web:2327]
 
-## eigen
-- Included in Thirdparty
-- Required by g2o
+## Environment used
 
-## g2o
-- Included in Thirdparty
-- Create a 'build' directory in Thirdparty/g2o
-- Open CMake GUI, click Configure and select Visual Studio 16 2019  
-- Click Generate and open project in Visual Studio
-- Change build type to Release
-- Open project properties 
-	-> General tab -> Configure Type: Static Library (.lib)
-	-> Advanced tab -> Target File Extension: .lib
-	-> C/C++ Tab -> Code Generation -> Runtime Library: Multi-threaded(/MT)
-	-> C/C++ Tab -> Preprocessor -> Preprocessor Definitions: add a 'WINDOWS' on top 
-- Build ALL_BUILD. There are some warnings but no errors.
-- Build succeeded Thirdparty/g2o/build/Release/g2o.lib
+Build was performed on Windows with:
+- Visual Studio 2022 / MSBuild
+- CMake
+- OpenCV from `C:\opencv\build\install\x64\vc17\lib`
+- Boost 1.67.0 from `C:\local\boost_1_67_0`
+- Eigen vendored in `Thirdparty/eigen` [cite:2283][cite:2282]
 
-## Pangolin
-- Included in Thirdparty
-- Create a 'build' directory in Thirdparty/Pangolin
-- Open CMake GUI, click Configure and select Visual Studio 16 2019
-- Click Congifure until no variables are considered new, Generate and open project in Visual Studio
-- Change build type to Release
-- Open project properties 
-	-> C/C++ Tab -> Code Generation -> Runtime Library: Multi-threaded(/MT) 
-- Build ALL_BUILD. Ignore the error 'cannot open input file pthread.lib'
-- Build succeeded ThirdParty/Pangolin/lib/Release/pangolin.lib
+Important: paths are still partially hardcoded in `CMakeLists.txt`, so cloning this repository alone is **not** enough to guarantee a successful build on another machine without reproducing the same dependency layout.[web:2292][web:2286]
 
-# 4. BUILD ORB-SLAM3
-- Create a 'build' directory in ORB-SLAM3
-- Open CMake GUI, click Configure and select Visual Studio 16 2019
-- Enter value OpenCV_DIR: path to OpenCV build
-- Click Congifure until no variables are considered new, Generate and open project in Visual Studio
-- In system.h and system.cc of ORB_SLAM3 project: define 'usleep' function (from https://stackoverflow.com/questions/5801813/c-usleep-is-obsolete-workarounds-for-windows-mingw) which is used in examples
-- Change build type to Release
-- Set boost include and lib (can be done in CMakeLists)
-- Open project properties 
-	-> General tab -> Configure Type: Static Library (.lib)
-	-> Advanced tab -> Target File Extension: .lib
-	-> C/C++ Tab -> Preprocessor -> Preprocessor Definitions: add COMPILEDWITHC11
-	-> C/C++ Tab -> Code Generation -> Runtime Library: Multi-threaded(/MT)
-- Build ORB-SLAM3
-- Build succeeded ORB_SLAM3/build/Release/ORB-SLAM3.lib
+## Main fixes applied
 
-# 5. BUILD examples
-## stereo_inertial_tum_vi
-- Change build type to Release
-- Open project properties
-	-> C/C++ Tab -> Preprocessor -> Preprocessor Definitions: add COMPILEDWITHC11
-	-> C/C++ tab -> Code Generation -> Runtime Library: Multi-threaded(/MT)
-	-> Linker tab -> Advanced -> delete path in Import library
-- Build stereo_inertial_tum_vi
-- Build succeeded ORB_SLAM3/Examples/Stereo-Inertial/Release/stereo_inertial_tum_vi.exe
-- Extract ORBvoc.txt.tar.gz to ORBvoc.txt
-- Run: Examples\Stereo-Inertial\Release\stereo_inertial_tum_vi
-	path_to_vocabulary
-	path_to_settings
-	path_to_image_folder_1
-	path_to_image_folder_2
-	path_to_times_file
-	path_to_imu_data
-	trajectory_file_name
-- Result
-![alt text](https://github.com/ds-ly/orbslam3-windows/blob/master/example_stereo_intertial_tum_vi.png)
+### Pangolin
+- `MSVC_USE_STATIC_CRT` set to `OFF` to avoid `/MT` vs `/MD` conflicts on MSVC.
+- External GLEW build kept enabled.
+- The embedded GLEW CMake file had to be patched from:
+  - `CMAKE_MINIMUM_REQUIRED(VERSION 2.6)`
+  to:
+  - `cmake_minimum_required(VERSION 3.5)`
+- Pangolin test targets may still fail on Windows because of `pthread.lib`, but `pangolin.lib` itself was built successfully and was sufficient for ORB-SLAM3.[web:2176][web:2187][web:2194]
+
+### Boost
+- The project expects Boost 1.67.0 in `C:\local\boost_1_67_0`.
+- The required serialization library is:
+  - `C:\local\boost_1_67_0\lib64-msvc-14.1\libboost_serialization-vc141-mt-s-x64-1_67.lib`
+- A Windows-specific fix was required to disable Boost auto-linking:
+  - `BOOST_ALL_NO_LIB` [web:2325][web:2329]
+
+### ORB-SLAM3
+- ORB-SLAM3 was configured and linked successfully after the Boost fix above.
+- Some paths in the root `CMakeLists.txt` are machine-specific and may need to be adapted on another computer.[web:2209][web:2292]
+
+## Dependencies expected
+
+Before configuring the project, make sure the following are available:
+
+| Dependency | Expected location |
+|---|---|
+| Boost 1.67.0 | `C:\local\boost_1_67_0` |
+| OpenCV | `C:\opencv\build\install\x64\vc17\lib` |
+| Eigen | `Thirdparty/eigen` |
+| Pangolin | `Thirdparty/Pangolin` | [cite:2282][cite:2283]
+
+## Build sequence used
+
+### 1. Build Pangolin
+
+Pangolin was configured from a dedicated build folder with external GLEW enabled and static CRT disabled.[web:2209]
+
+Example:
+```bat
+cmake -G "Visual Studio 17 2022" -A x64 -T host=x64 ..\Thirdparty\Pangolin ^
+  -DCMAKE_BUILD_TYPE=Release ^
+  -DMSVC_USE_STATIC_CRT=OFF ^
+  -DBUILD_EXTERN_GLEW=ON ^
+  -DBUILD_EXTERN_LIBJPEG=OFF ^
+  -DBUILD_EXTERN_LIBPNG=OFF ^
+  -DBUILD_TESTS=OFF ^
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+```
+
+### 2. Build ORB-SLAM3
+
+ORB-SLAM3 was configured with OpenCV like this:
+
+```bat
+cmake -S . -B build_orbslam -G "Visual Studio 17 2022" -A x64 ^
+  -DCMAKE_BUILD_TYPE=Release ^
+  -DOpenCV_DIR=C:\opencv\build\install\x64\vc17\lib
+```
+
+Then built with:
+
+```bat
+cmake --build build_orbslam --config Release --target ORB_SLAM3
+```
+
+## Portability notes
+
+This repository should currently be considered a **working build record**, not a fully portable Windows package. Another Windows machine may still require:
+- matching Boost installation layout,
+- matching OpenCV installation path,
+- Visual Studio / MSVC compatibility,
+- small path edits in `CMakeLists.txt`. [web:2292][web:2286]
+
+## Next recommended step
+
+The next useful step is to validate runtime execution with a real dataset and then replace hardcoded local paths with cleaner configuration variables or documented setup steps.[web:2324]
