@@ -35,3 +35,26 @@ compile_commands.json
 *.log
 *.tmp
 *.bak
+
+# Visual Studio / CMake build outputs
+[Rr]elease/
+[Dd]ebug/
+x64/
+x86/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+out/
+
+# Datasets (au cas où tu en mettrais dans ce repo)
+Datasets/
+datasets/
+data/
+MH01/
+MH02/
+MH03/
+
+# ORB vocabulary (optionnel)
+Vocabulary/ORBvoc.txt
+Vocabulary/ORBvoc.txt.tar.gz

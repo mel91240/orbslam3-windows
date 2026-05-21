@@ -16,7 +16,7 @@
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
-
+#include <windows.h>
 #include<stdlib.h>
 #include<iostream>
 #include<algorithm>
@@ -91,7 +91,7 @@ int main(int argc, char **argv)
         {
 
             // Read image from file
-            im = cv::imread(vstrImageFilenames[seq][ni],CV_LOAD_IMAGE_UNCHANGED);
+            im = cv::imread(vstrImageFilenames[seq][ni],cv::IMREAD_UNCHANGED);
             double tframe = vTimestampsCam[seq][ni];
 
             if(im.empty())
@@ -104,7 +104,7 @@ int main(int argc, char **argv)
     #ifdef COMPILEDWITHC11
             std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     #else
-            std::chrono::monotonic_clock::time_point t1 = std::chrono::monotonic_clock::now();
+            std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     #endif
 
             // Pass the image to the SLAM system
@@ -114,7 +114,7 @@ int main(int argc, char **argv)
     #ifdef COMPILEDWITHC11
             std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
     #else
-            std::chrono::monotonic_clock::time_point t2 = std::chrono::monotonic_clock::now();
+            std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
     #endif
 
             double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
@@ -129,7 +129,7 @@ int main(int argc, char **argv)
                 T = tframe-vTimestampsCam[seq][ni-1];
 
             if(ttrack<T)
-                usleep((T-ttrack)*1e6); // 1e6
+                Sleep(static_cast<DWORD>((T - ttrack) * 1000)); // 1e6
         }
 
         if(seq < num_seq - 1)
