@@ -1,0 +1,50 @@
+%YAML:1.0
+
+# Monocular camera calibration file for ORB-SLAM3
+# Camera: Redmi Note 10S (video calib_chess), 1080 x 1920 @ 30 fps
+
+Camera.type: "PinHole"
+
+# Camera calibration parameters
+Camera.fx: 918.2979680146648
+Camera.fy: 917.0611457854227
+Camera.cx: 270.6294935077972
+Camera.cy: 483.91341559266645
+
+Camera.k1: 0.1413694603400802
+Camera.k2: -1.062339939234357
+Camera.p1: 0.0017972617246637891
+Camera.p2: 0.0007524617966363603
+Camera.k3: 2.5788002897143816
+
+Camera.width: 540
+Camera.height: 960
+
+Camera.fps: 15.0
+Camera.RGB: 1
+
+# Camera frames per second
+# For real-time operation set this to the camera FPS.
+# If images are played from a dataset, set Camera.fps to the dataset FPS.
+
+# Stereo baseline times fx (only used if you had stereo; keep 0 here)
+Camera.bf: 0.0
+
+# ORB Extractor Parameters
+ORBextractor.nFeatures: 1500      # au lieu de 1000
+ORBextractor.scaleFactor: 1.2
+ORBextractor.nLevels: 8           # tu peux laisser 8
+ORBextractor.iniThFAST: 15        # au lieu de 20
+ORBextractor.minThFAST: 5         # au lieu de 7
+
+# Viewer Parameters
+Viewer.KeyFrameSize: 0.6
+Viewer.KeyFrameLineWidth: 1
+Viewer.GraphLineWidth: 0.9
+Viewer.PointSize: 2
+Viewer.CameraSize: 0.7
+Viewer.CameraLineWidth: 3
+Viewer.ViewpointX: 0.0
+Viewer.ViewpointY: -0.7
+Viewer.ViewpointZ: -5.0
+Viewer.ViewpointF: 500.0

@@ -17,15 +17,16 @@
 */
 
 #include <windows.h>
-#include<stdlib.h>
-#include<iostream>
-#include<algorithm>
-#include<fstream>
-#include<chrono>
+#include <stdlib.h>
+#include <iostream>
+#include <algorithm>
+#include <fstream>
+#include <chrono>
+#include <sstream>
 
-#include<opencv2/core/core.hpp>
+#include <opencv2/core/core.hpp>
 
-#include<System.h>
+#include <System.h>
 
 using namespace std;
 
@@ -33,7 +34,7 @@ void LoadImages(const string &strImagePath, const string &strPathTimes,
                 vector<string> &vstrImages, vector<double> &vTimeStamps);
 
 int main(int argc, char **argv)
-{  
+{
     if(argc < 5)
     {
         cerr << endl << "Usage: ./mono_euroc path_to_vocabulary path_to_settings path_to_sequence_folder_1 path_to_times_file_1 (path_to_image_folder_2 path_to_times_file_2 ... path_to_image_folder_N path_to_times_file_N) (trajectory_file_name)" << endl;
@@ -42,7 +43,7 @@ int main(int argc, char **argv)
 
     const int num_seq = (argc-3)/2;
     cout << "num_seq = " << num_seq << endl;
-    bool bFileName= (((argc-3) % 2) == 1);
+    bool bFileName = (((argc-3) % 2) == 1);
     string file_name;
     if (bFileName)
     {
@@ -50,10 +51,9 @@ int main(int argc, char **argv)
         cout << "file name: " << file_name << endl;
     }
 
-    // Load all sequences:
     int seq;
-    vector< vector<string> > vstrImageFilenames;
-    vector< vector<double> > vTimestampsCam;
+    vector<vector<string>> vstrImageFilenames;
+    vector<vector<double>> vTimestampsCam;
     vector<int> nImages;
 
     vstrImageFilenames.resize(num_seq);
@@ -61,93 +61,116 @@ int main(int argc, char **argv)
     nImages.resize(num_seq);
 
     int tot_images = 0;
-    for (seq = 0; seq<num_seq; seq++)
+    for (seq = 0; seq < num_seq; seq++)
     {
         cout << "Loading images for sequence " << seq << "...";
-        LoadImages(string(argv[(2*seq)+3]) + "/mav0/cam0/data", string(argv[(2*seq)+4]), vstrImageFilenames[seq], vTimestampsCam[seq]);
+        LoadImages(string(argv[(2*seq)+3]) + "/mav0/cam0/data",
+                   string(argv[(2*seq)+4]),
+                   vstrImageFilenames[seq],
+                   vTimestampsCam[seq]);
         cout << "LOADED!" << endl;
 
-        nImages[seq] = vstrImageFilenames[seq].size();
+        nImages[seq] = static_cast<int>(vstrImageFilenames[seq].size());
         tot_images += nImages[seq];
+
+        cout << "Sequence " << seq
+             << ": nImages=" << nImages[seq]
+             << ", nTimestamps=" << vTimestampsCam[seq].size()
+             << endl;
     }
 
-    // Vector for tracking time statistics
     vector<float> vTimesTrack;
     vTimesTrack.resize(tot_images);
 
     cout << endl << "-------" << endl;
     cout.precision(17);
 
-    // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::MONOCULAR, true);
+    ORB_SLAM3::System SLAM(argv[1], argv[2], ORB_SLAM3::System::MONOCULAR, true);
 
-    for (seq = 0; seq<num_seq; seq++)
+    for (seq = 0; seq < num_seq; seq++)
     {
+        cout << "SEQ " << seq
+             << " NUM_IMAGES " << vstrImageFilenames[seq].size()
+             << " NUM_TIMESTAMPS " << vTimestampsCam[seq].size()
+             << endl;
 
-        // Main loop
         cv::Mat im;
         int proccIm = 0;
-        for(int ni=0; ni<nImages[seq]; ni++, proccIm++)
-        {
 
-            // Read image from file
-            im = cv::imread(vstrImageFilenames[seq][ni],cv::IMREAD_UNCHANGED);
-            double tframe = vTimestampsCam[seq][ni];
+        for(int ni = 0; ni < nImages[seq]; ni++, proccIm++)
+        {
+            string imagePath = vstrImageFilenames[seq][ni];
+
+            if(imagePath.empty())
+            {
+                cerr << "Empty image path at index " << ni << endl;
+                continue;
+            }
+
+            im = cv::imread(imagePath, cv::IMREAD_UNCHANGED);
 
             if(im.empty())
             {
-                cerr << endl << "Failed to load image at: "
-                     <<  vstrImageFilenames[seq][ni] << endl;
-                return 1;
+                cerr << "Failed to load image: " << imagePath << endl;
+                continue;
             }
 
-    #ifdef COMPILEDWITHC11
+            if(ni >= static_cast<int>(vTimestampsCam[seq].size()))
+            {
+                cerr << "Timestamp index out of range at ni=" << ni << endl;
+                break;
+            }
+
+            double tframe = vTimestampsCam[seq][ni];
+
+#ifdef COMPILEDWITHC11
             std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-    #else
+#else
             std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-    #endif
+#endif
 
-            // Pass the image to the SLAM system
-            // cout << "tframe = " << tframe << endl;
-            SLAM.TrackMonocular(im,tframe); // TODO change to monocular_inertial
+            std::cout << "SEQ " << seq
+                      << " FRAME_IDX " << ni
+                      << " T " << std::fixed << tframe
+                      << " PATH " << imagePath
+                      << std::endl;
 
-    #ifdef COMPILEDWITHC11
+            SLAM.TrackMonocular(im, tframe);
+
+#ifdef COMPILEDWITHC11
             std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-    #else
+#else
             std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-    #endif
+#endif
 
-            double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+            double ttrack = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
 
-            vTimesTrack[ni]=ttrack;
+            if(ni < static_cast<int>(vTimesTrack.size()))
+                vTimesTrack[ni] = ttrack;
 
-            // Wait to load the next frame
-            double T=0;
-            if(ni<nImages[seq]-1)
-                T = vTimestampsCam[seq][ni+1]-tframe;
-            else if(ni>0)
-                T = tframe-vTimestampsCam[seq][ni-1];
+            double T = 0;
+            if(ni < nImages[seq]-1)
+                T = vTimestampsCam[seq][ni+1] - tframe;
+            else if(ni > 0)
+                T = tframe - vTimestampsCam[seq][ni-1];
 
-            if(ttrack<T)
-                Sleep(static_cast<DWORD>((T - ttrack) * 1000)); // 1e6
+            if(ttrack < T)
+                Sleep(static_cast<DWORD>((T - ttrack) * 1000));
         }
 
         if(seq < num_seq - 1)
         {
             cout << "Changing the dataset" << endl;
-
             SLAM.ChangeDataset();
         }
-
     }
-    // Stop all threads
+
     SLAM.Shutdown();
 
-    // Save camera trajectory
     if (bFileName)
     {
-        const string kf_file =  "kf_" + string(argv[argc-1]) + ".txt";
-        const string f_file =  "f_" + string(argv[argc-1]) + ".txt";
+        const string kf_file = "kf_" + string(argv[argc-1]) + ".txt";
+        const string f_file = "f_" + string(argv[argc-1]) + ".txt";
         SLAM.SaveTrajectoryEuRoC(f_file);
         SLAM.SaveKeyFrameTrajectoryEuRoC(kf_file);
     }
@@ -163,23 +186,40 @@ int main(int argc, char **argv)
 void LoadImages(const string &strImagePath, const string &strPathTimes,
                 vector<string> &vstrImages, vector<double> &vTimeStamps)
 {
-    ifstream fTimes;
-    fTimes.open(strPathTimes.c_str());
+    ifstream fTimes(strPathTimes.c_str());
+    if(!fTimes.is_open())
+    {
+        cerr << "Cannot open timestamps file: " << strPathTimes << endl;
+        return;
+    }
+
+    vTimeStamps.clear();
+    vstrImages.clear();
     vTimeStamps.reserve(5000);
     vstrImages.reserve(5000);
-    while(!fTimes.eof())
-    {
-        string s;
-        getline(fTimes,s);
-        if(!s.empty())
-        {
-            stringstream ss;
-            ss << s;
-            vstrImages.push_back(strImagePath + "/" + ss.str() + ".png");
-            double t;
-            ss >> t;
-            vTimeStamps.push_back(t/1e9);
 
-        }
+    string s;
+    while(std::getline(fTimes, s))
+    {
+        if(s.empty())
+            continue;
+
+        stringstream ss(s);
+        string stamp;
+        ss >> stamp;
+
+        if(stamp.empty())
+            continue;
+
+        vstrImages.push_back(strImagePath + "/" + stamp + ".png");
+
+        double t = 0.0;
+        stringstream ts(stamp);
+        ts >> t;
+        vTimeStamps.push_back(t / 1e9);
     }
+
+    cout << "Loaded " << vstrImages.size()
+         << " image paths and " << vTimeStamps.size()
+         << " timestamps from " << strPathTimes << endl;
 }
